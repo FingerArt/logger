@@ -1,8 +1,11 @@
 package com.orhanobut.logger;
 
+import static com.orhanobut.logger.Utils.checkNotNull;
+
 import android.os.Environment;
 import android.os.Handler;
 import android.os.HandlerThread;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -10,8 +13,6 @@ import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
-
-import static com.orhanobut.logger.Utils.checkNotNull;
 
 /**
  * CSV formatted file logging for Android.
@@ -93,6 +94,8 @@ public class CsvFormatStrategy implements FormatStrategy {
     Date date;
     SimpleDateFormat dateFormat;
     LogStrategy logStrategy;
+    String saveDir;
+    long maxBytes;
     String tag = "PRETTY_LOGGER";
 
     private Builder() {
@@ -118,6 +121,16 @@ public class CsvFormatStrategy implements FormatStrategy {
       return this;
     }
 
+    @NonNull public Builder saveDir(@Nullable String dir) {
+      this.saveDir = dir;
+      return this;
+    }
+
+    @NonNull public Builder maxBytes(long maxBytes) {
+      this.maxBytes = maxBytes;
+      return this;
+    }
+
     @NonNull public CsvFormatStrategy build() {
       if (date == null) {
         date = new Date();
@@ -127,11 +140,13 @@ public class CsvFormatStrategy implements FormatStrategy {
       }
       if (logStrategy == null) {
         String diskPath = Environment.getExternalStorageDirectory().getAbsolutePath();
-        String folder = diskPath + File.separatorChar + "logger";
+        String fallback = diskPath + File.separatorChar + ".logger";
+        String folder = Utils.isEmpty(saveDir) ? fallback : saveDir;
+        long limitBytes = maxBytes > 0 ? maxBytes : MAX_BYTES;
 
         HandlerThread ht = new HandlerThread("AndroidFileLogger." + folder);
         ht.start();
-        Handler handler = new DiskLogStrategy.WriteHandler(ht.getLooper(), folder, MAX_BYTES);
+        Handler handler = new DiskLogStrategy.WriteHandler(ht.getLooper(), folder, limitBytes);
         logStrategy = new DiskLogStrategy(handler);
       }
       return new CsvFormatStrategy(this);

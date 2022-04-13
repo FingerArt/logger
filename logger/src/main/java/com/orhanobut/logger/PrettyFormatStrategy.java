@@ -1,9 +1,9 @@
 package com.orhanobut.logger;
 
+import static com.orhanobut.logger.Utils.checkNotNull;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import static com.orhanobut.logger.Utils.checkNotNull;
 
 /**
  * Draws borders around the given log message along with additional information such as :
@@ -60,6 +60,7 @@ public class PrettyFormatStrategy implements FormatStrategy {
   private static final String TOP_BORDER = TOP_LEFT_CORNER + DOUBLE_DIVIDER + DOUBLE_DIVIDER;
   private static final String BOTTOM_BORDER = BOTTOM_LEFT_CORNER + DOUBLE_DIVIDER + DOUBLE_DIVIDER;
   private static final String MIDDLE_BORDER = MIDDLE_CORNER + SINGLE_DIVIDER + SINGLE_DIVIDER;
+  private static final String NEW_LINE = System.getProperty("line.separator");
 
   private final int methodCount;
   private final int methodOffset;
@@ -81,46 +82,53 @@ public class PrettyFormatStrategy implements FormatStrategy {
     return new Builder();
   }
 
-  @Override public void log(int priority, @Nullable String onceOnlyTag, @NonNull String message) {
-    checkNotNull(message);
+  @Override
+  public void log(int priority, @Nullable String onceOnlyTag, @NonNull String message) {
+    StringBuilder logBuilder = new StringBuilder(" ");
+    logBuilder.append(NEW_LINE);
 
     String tag = formatTag(onceOnlyTag);
 
-    logTopBorder(priority, tag);
-    logHeaderContent(priority, tag, methodCount);
+    logBuilder.append(logTopBorder(priority, tag));
+    logBuilder.append(logHeaderContent(priority, tag, methodCount));
 
     //get bytes of message with system's default charset (which is UTF-8 for Android)
     byte[] bytes = message.getBytes();
     int length = bytes.length;
     if (length <= CHUNK_SIZE) {
       if (methodCount > 0) {
-        logDivider(priority, tag);
+        logBuilder.append(logDivider(priority, tag));
       }
-      logContent(priority, tag, message);
-      logBottomBorder(priority, tag);
+      logBuilder.append(logContent(priority, tag, message));
+      logBuilder.append(logBottomBorder(priority, tag));
+      logStrategy.log(priority, tag, logBuilder.toString());
       return;
     }
+
     if (methodCount > 0) {
-      logDivider(priority, tag);
+      logBuilder.append(logDivider(priority, tag));
     }
     for (int i = 0; i < length; i += CHUNK_SIZE) {
+      StringBuilder chunkBuilder = new StringBuilder(logBuilder);
       int count = Math.min(length - i, CHUNK_SIZE);
       //create a new String with system's default charset (which is UTF-8 for Android)
-      logContent(priority, tag, new String(bytes, i, count));
+      chunkBuilder.append(logContent(priority, tag, new String(bytes, i, count)));
+      chunkBuilder.append(logBottomBorder(priority, tag));
+      logStrategy.log(priority, tag, chunkBuilder.toString());
     }
-    logBottomBorder(priority, tag);
   }
 
-  private void logTopBorder(int logType, @Nullable String tag) {
-    logChunk(logType, tag, TOP_BORDER);
+  private String logTopBorder(int logType, @Nullable String tag) {
+    return logChunk(logType, tag, TOP_BORDER);
   }
 
-  @SuppressWarnings("StringBufferReplaceableByString")
-  private void logHeaderContent(int logType, @Nullable String tag, int methodCount) {
+  private StringBuilder logHeaderContent(int logType, @Nullable String tag, int methodCount) {
+    StringBuilder builder = new StringBuilder();
+
     StackTraceElement[] trace = Thread.currentThread().getStackTrace();
     if (showThreadInfo) {
-      logChunk(logType, tag, HORIZONTAL_LINE + " Thread: " + Thread.currentThread().getName());
-      logDivider(logType, tag);
+      builder.append(logChunk(logType, tag, HORIZONTAL_LINE + " Thread: " + Thread.currentThread().getName()));
+      builder.append(logDivider(logType, tag));
     }
     String level = "";
 
@@ -136,7 +144,6 @@ public class PrettyFormatStrategy implements FormatStrategy {
       if (stackIndex >= trace.length) {
         continue;
       }
-      StringBuilder builder = new StringBuilder();
       builder.append(HORIZONTAL_LINE)
           .append(' ')
           .append(level)
@@ -148,34 +155,34 @@ public class PrettyFormatStrategy implements FormatStrategy {
           .append(trace[stackIndex].getFileName())
           .append(":")
           .append(trace[stackIndex].getLineNumber())
-          .append(")");
+          .append(")")
+          .append("\n");
       level += "   ";
-      logChunk(logType, tag, builder.toString());
     }
+    return builder;
   }
 
-  private void logBottomBorder(int logType, @Nullable String tag) {
-    logChunk(logType, tag, BOTTOM_BORDER);
+  private String logBottomBorder(int logType, @Nullable String tag) {
+    return logChunk(logType, tag, BOTTOM_BORDER);
   }
 
-  private void logDivider(int logType, @Nullable String tag) {
-    logChunk(logType, tag, MIDDLE_BORDER);
+  private String logDivider(int logType, @Nullable String tag) {
+    return logChunk(logType, tag, MIDDLE_BORDER);
   }
 
-  private void logContent(int logType, @Nullable String tag, @NonNull String chunk) {
-    checkNotNull(chunk);
-
-    String[] lines = chunk.split(System.getProperty("line.separator"));
+  private CharSequence logContent(int logType, @Nullable String tag, @NonNull String chunk) {
+    StringBuilder builder = new StringBuilder();
+    String[] lines = chunk.split(NEW_LINE);
     for (String line : lines) {
-      logChunk(logType, tag, HORIZONTAL_LINE + " " + line);
+      builder.append(logChunk(logType, tag, HORIZONTAL_LINE + " " + line));
     }
+    return builder;
   }
 
-  private void logChunk(int priority, @Nullable String tag, @NonNull String chunk) {
-    checkNotNull(chunk);
-
-    logStrategy.log(priority, tag, chunk);
+  private String logChunk(int priority, @Nullable String tag, @NonNull String chunk) {
+    return chunk + NEW_LINE;
   }
+
 
   private String getSimpleClassName(@NonNull String name) {
     checkNotNull(name);

@@ -1,8 +1,11 @@
 package com.orhanobut.logger;
 
+import static com.orhanobut.logger.Utils.checkNotNull;
+
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -10,12 +13,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import static com.orhanobut.logger.Utils.checkNotNull;
-
 /**
  * Abstract class that takes care of background threading the file log operation on Android.
  * implementing classes are free to directly perform I/O operations there.
- *
+ * <p>
  * Writes all logs to the disk with CSV format.
  */
 public class DiskLogStrategy implements LogStrategy {
@@ -36,9 +37,11 @@ public class DiskLogStrategy implements LogStrategy {
   static class WriteHandler extends Handler {
 
     @NonNull private final String folder;
-    private final int maxFileSize;
+    private final long maxFileSize;
+    private File currentLogFile;
+    private FileWriter logWriter;
 
-    WriteHandler(@NonNull Looper looper, @NonNull String folder, int maxFileSize) {
+    WriteHandler(@NonNull Looper looper, @NonNull String folder, long maxFileSize) {
       super(checkNotNull(looper));
       this.folder = checkNotNull(folder);
       this.maxFileSize = maxFileSize;
@@ -49,22 +52,21 @@ public class DiskLogStrategy implements LogStrategy {
       String content = (String) msg.obj;
 
       FileWriter fileWriter = null;
-      File logFile = getLogFile(folder, "logs");
 
       try {
-        fileWriter = new FileWriter(logFile, true);
+        fileWriter = findLogWriter(content.length());
 
         writeLog(fileWriter, content);
 
         fileWriter.flush();
-        fileWriter.close();
       } catch (IOException e) {
         if (fileWriter != null) {
           try {
-            fileWriter.flush();
             fileWriter.close();
           } catch (IOException e1) { /* fail silently */ }
         }
+      } catch (Exception e) {
+        e.printStackTrace();
       }
     }
 
@@ -82,7 +84,28 @@ public class DiskLogStrategy implements LogStrategy {
       fileWriter.append(content);
     }
 
-    private File getLogFile(@NonNull String folderName, @NonNull String fileName) {
+    @NonNull private FileWriter findLogWriter(long newContentLength) throws IOException {
+      if (currentLogFile != null && currentLogFile.length() + newContentLength > maxFileSize) {
+        logWriter.close();
+        logWriter = null;
+        currentLogFile = null;
+      }
+
+      try {
+        if (currentLogFile == null) {
+          currentLogFile = getNewLogFile(folder, "logs");
+          logWriter = new FileWriter(currentLogFile, true);
+        }
+      } catch (IOException e) {
+        currentLogFile = null;
+        logWriter = null;
+        throw e;
+      }
+
+      return logWriter;
+    }
+
+    private File getNewLogFile(@NonNull String folderName, @NonNull String fileName) {
       checkNotNull(folderName);
       checkNotNull(fileName);
 

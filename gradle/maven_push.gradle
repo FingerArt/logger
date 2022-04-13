@@ -4,6 +4,17 @@ apply plugin: 'signing'
 version = VERSION_NAME
 group = GROUP
 
+File lpFile = project.rootProject.file('local.properties')
+if (lpFile.exists()) {
+  Properties properties = new Properties()
+  properties.load(lpFile.newDataInputStream())
+  ext['signing.keyId'] = properties.getProperty('signing.keyId', System.getenv('GPG_KEY_ID'))
+  ext['signing.password'] = properties.getProperty('signing.password', System.getenv('GPG_SECRET_PASSWORD'))
+  ext['signing.secretKeyRingFile'] = properties.getProperty('signing.secretKeyRingFile', System.getenv('GPG_SECRET_KEY_RING_FILE'))
+  ext['NEXUS_USERNAME'] = properties.getProperty('nexus.username', System.getenv('NEXUS_USERNAME'))
+  ext['NEXUS_PASSWORD'] = properties.getProperty('nexus.password', System.getenv('NEXUS_PASSWORD'))
+}
+
 def isReleaseBuild() {
   return version.contains("SNAPSHOT") == false
 }
@@ -12,11 +23,11 @@ def sonatypeRepositoryUrl
 if (isReleaseBuild()) {
   println 'RELEASE BUILD'
   sonatypeRepositoryUrl = hasProperty('RELEASE_REPOSITORY_URL') ? RELEASE_REPOSITORY_URL
-      : "https://oss.sonatype.org/service/local/staging/deploy/maven2/"
+      : "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
 } else {
   println 'DEBUG BUILD'
   sonatypeRepositoryUrl = hasProperty('SNAPSHOT_REPOSITORY_URL') ? SNAPSHOT_REPOSITORY_URL
-      : "https://oss.sonatype.org/content/repositories/snapshots/"
+      : "https://s01.oss.sonatype.org/content/repositories/snapshots/"
 }
 
 afterEvaluate { project ->

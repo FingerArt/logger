@@ -5,11 +5,13 @@ import android.os.Bundle;
 import android.util.Log;
 
 import com.orhanobut.logger.AndroidLogAdapter;
+import com.orhanobut.logger.CsvFormatStrategy;
 import com.orhanobut.logger.DiskLogAdapter;
 import com.orhanobut.logger.FormatStrategy;
 import com.orhanobut.logger.Logger;
 import com.orhanobut.logger.PrettyFormatStrategy;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -47,10 +49,12 @@ public class MainActivity extends Activity {
       }
     });
 
-    Logger.addLogAdapter(new DiskLogAdapter());
-
+    String diskPath = getExternalFilesDir(null).getAbsolutePath() + File.separator + "logger";
+    Logger.addLogAdapter(new DiskLogAdapter(CsvFormatStrategy.newBuilder().saveDir(diskPath).maxBytes(100).build()));
 
     Logger.w("no thread info and only 1 method");
+    Logger.w("no thread info and only 2 method");
+    Logger.w("no thread info and only 3 method");
 
     Logger.clearLogAdapters();
     formatStrategy = PrettyFormatStrategy.newBuilder()
